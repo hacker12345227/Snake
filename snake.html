@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake Mobile Ultimate</title>
+
+<style>
+    body {
+        background: #111;
+        margin: 0;
+        font-family: Arial, sans-serif;
+        color: white;
+        text-align: center;
+        overflow: hidden;
+    }
+
+    /* MENU */
+    #menu {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        margin-top: 50px;
+    }
+    .btn {
+        background: #222;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 25px;
+        width: 250px;
+        margin: auto;
+        cursor: pointer;
+    }
+    .btn:hover { background: #333; }
+
+    .skins {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+    }
+    .skin {
+        width: 60px;
+        height: 60px;
+        border-radius: 10px;
+        cursor: pointer;
+        border: 4px solid transparent;
+    }
+    .sel { border-color: white !important; }
+
+    /* GAME CANVAS */
+    #game {
+        background: #000;
+        margin-top: 20px;
+    }
+
+    /* TOUCH */
+    #controls {
+        margin-top: 20px;
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+    }
+    .row {
+        display: flex;
+        gap: 10px;
+    }
+    .control {
+        width: 70px;
+        height: 70px;
+        background: #333;
+        border-radius: 10px;
+        font-size: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+    }
+    .control:active { background: #555; }
+
+</style>
+</head>
+<body>
+
+<h1 id="title">🐍 Snake Mobile Ultimate</h1>
+
+<!-- MENU -->
+<div id="menu">
+    <div class="btn" onclick="startGame()">▶️ Start</div>
+    <div>Skin keuze:</div>
+    <div class="skins">
+        <div id="skinGreen" class="skin sel" style="background: lime;" onclick="setSkin('lime')"></div>
+        <div id="skinBlue" class="skin" style="background: deepskyblue;" onclick="setSkin('deepskyblue')"></div>
+        <div id="skinRed" class="skin" style="background: tomato;" onclick="setSkin('tomato')"></div>
+    </div>
+    <div id="highscoreDisplay">🏆 Highscore: 0</div>
+</div>
+
+<!-- GAME -->
+<canvas id="game" width="400" height="400" style="display:none;"></canvas>
+<h2 id="score" style="display:none;">Score: 0</h2>
+
+<!-- TOUCH CONTROLS -->
+<div id="controls">
+    <div class="row"><div class="control" onclick="dir(0,-1)">⬆️</div></div>
+    <div class="row">
+        <div class="control" onclick="dir(-1,0)">⬅️</div>
+        <div class="control" onclick="dir(1,0)">➡️</div>
+    </div>
+    <div class="row"><div class="control" onclick="dir(0,1)">⬇️</div></div>
+</div>
+
+<script>
+/* ---------------------- VARIABELEN ------------------------ */
+let canvas = document.getElementById("game");
+let ctx = canvas.getContext("2d");
+
+let grid = 20;
+let snake = [];
+let dx = grid, dy = 0;
+let food;
+let score = 0;
+let gameLoopId;
+let skin = "lime";  // default
+let highscore = localStorage.getItem("snakeHS") || 0;
+document.getElementById("highscoreDisplay").innerText = "🏆 Highscore: " + highscore;
+
+/* ---------------------- SOUNDS ----------------------------- */
+let eatSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQgAAAABAQEB"); // mini-beep
+let dieSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQgAAAABAQEB");
+
+/* ---------------------- MENU LOGICA ------------------------ */
+
+function setSkin(color) {
+    skin = color;
+    document.querySelectorAll(".skin").forEach(s => s.classList.remove("sel"));
+    event.target.classList.add("sel");
+}
+
+function startGame() {
+    document.getElementById("menu").style.display = "none";
+    canvas.style.display = "block";
+    document.getElementById("score").style.display = "block";
+    document.getElementById("controls").style.display = "flex";
+
+    resetGame();
+    gameLoop();
+}
+
+/* ---------------------- GAME ------------------------ */
+
+function resetGame() {
+    snake = [{x: 200, y: 200}];
+    dx = grid; 
+    dy = 0;
+    score = 0;
+    food = randomFood();
+    document.getElementById("score").innerText = "Score: 0";
+}
+
+function randomFood() {
+    return {
+        x: Math.floor(Math.random()*20)*grid,
+        y: Math.floor(Math.random()*20)*grid
+    };
+}
+
+function dir(x,y) {
+    if (dx !== -x*grid && dy !== -y*grid) {
+        dx = x*grid;
+        dy = y*grid;
+    }
+}
+
+document.addEventListener("keydown", e => {
+    if (e.key === "ArrowUp") dir(0,-1);
+    if (e.key === "ArrowDown") dir(0,1);
+    if (e.key === "ArrowLeft") dir(-1,0);
+    if (e.key === "ArrowRight") dir(1,0);
+});
+
+function gameLoop() {
+    gameLoopId = setTimeout(gameLoop, 100);
+
+    let head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+    // Game over
+    if (
+        head.x < 0 || head.x >= canvas.width ||
+        head.y < 0 || head.y >= canvas.height ||
+        snake.some(p => p.x === head.x && p.y === head.y)
+    ) {
+        dieSound.play();
+        endGame();
+        return;
+    }
+
+    snake.unshift(head);
+
+    // Eten
+    if (head.x === food.x && head.y === food.y) {
+        eatSound.play();
+        score++;
+        document.getElementById("score").innerText = "Score: " + score;
+
+        if (score > highscore) {
+            highscore = score;
+            localStorage.setItem("snakeHS", highscore);
+        }
+
+        food = randomFood();
+    } else {
+        snake.pop();
+    }
+
+    draw();
+}
+
+function draw() {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // Snake
+    ctx.fillStyle = skin;
+    snake.forEach(p => ctx.fillRect(p.x, p.y, grid, grid));
+
+    // Food
+    ctx.fillStyle = "red";
+    ctx.fillRect(food.x, food.y, grid, grid);
+}
+
+function endGame() {
+    clearTimeout(gameLoopId);
+    alert("☠️ Game Over!\nScore: " + score + "\nHighscore: " + highscore);
+    location.reload();
+}
+
+</script>
+</body>
+</html>
