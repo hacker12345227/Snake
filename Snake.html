@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake Mobile</title>
+<style>
+    body {
+        background: #111;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        color: white;
+        font-family: Arial, sans-serif;
+        user-select: none;
+    }
+    canvas {
+        background: #000;
+        margin-top: 20px;
+    }
+    .controls {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .row {
+        display: flex;
+        gap: 10px;
+    }
+    .btn {
+        width: 70px;
+        height: 70px;
+        background: #333;
+        border-radius: 10px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 35px;
+        cursor: pointer;
+    }
+    .btn:active {
+        background: #555;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>🐍 Snake Mobile</h1>
+<canvas id="game" width="400" height="400"></canvas>
+<h2 id="score">Score: 0</h2>
+
+<!-- Mobiele besturing -->
+<div class="controls">
+    <div class="row">
+        <div class="btn" onclick="setDir(0,-1)">⬆️</div>
+    </div>
+    <div class="row">
+        <div class="btn" onclick="setDir(-1,0)">⬅️</div>
+        <div class="btn" onclick="setDir(1,0)">➡️</div>
+    </div>
+    <div class="row">
+        <div class="btn" onclick="setDir(0,1)">⬇️</div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const grid = 20;
+let snake = [{x: 200, y: 200}];
+let dx = grid, dy = 0;
+
+let food = randomFood();
+let score = 0;
+
+function randomFood() {
+    return {
+        x: Math.floor(Math.random()*20)*grid,
+        y: Math.floor(Math.random()*20)*grid
+    };
+}
+
+function setDir(x, y) {
+    // voorkomt terugdraaien
+    if (dx !== -x * grid && dy !== -y * grid) {
+        dx = x * grid;
+        dy = y * grid;
+    }
+}
+
+document.addEventListener("keydown", e => {
+    if (e.key === "ArrowUp" && dy === 0) setDir(0,-1);
+    if (e.key === "ArrowDown" && dy === 0) setDir(0,1);
+    if (e.key === "ArrowLeft" && dx === 0) setDir(-1,0);
+    if (e.key === "ArrowRight" && dx === 0) setDir(1,0);
+});
+
+function gameLoop() {
+    let head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+    // Game over
+    if (
+        head.x < 0 || head.x >= canvas.width ||
+        head.y < 0 || head.y >= canvas.height ||
+        snake.some(p => p.x === head.x && p.y === head.y)
+    ) {
+        alert("Game Over! Score: " + score);
+        document.location.reload();
+        return;
+    }
+
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+        score++;
+        document.getElementById("score").innerText = "Score: " + score;
+        food = randomFood();
+    } else {
+        snake.pop();
+    }
+
+    // tekenen
+    ctx.fillStyle = "black";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.fillStyle = "lime";
+    snake.forEach(p => ctx.fillRect(p.x, p.y, grid, grid));
+
+    ctx.fillStyle = "red";
+    ctx.fillRect(food.x, food.y, grid, grid);
+
+    setTimeout(gameLoop, 100);
+}
+
+gameLoop();
+</script>
+
+</body>
+</html>
